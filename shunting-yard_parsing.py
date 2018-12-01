@@ -181,7 +181,8 @@ def evaluateBrackets(s):
 while(True):
     equationOrig = input('type equation: ')
     if evaluateBrackets(equationOrig):
-        break    
+        break
+    print("invalid string, make sure brackets match and don't use functions like sin, ln or min/max")
             
 i = 0
 operator = Stack()
