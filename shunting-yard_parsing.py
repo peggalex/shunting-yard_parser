@@ -31,10 +31,6 @@ class Operators:
     #so i'd have to say Operator._precedence etc
     #which means my child classes would need to override
 
-    def outputToString(output: list)->str:
-        for e in output:
-            
-
 class Add(Operators):
     _precedence = 1
     _function = lambda x,y:x+y
@@ -78,8 +74,8 @@ class OperatorHandelers:
 
 class Stack:
 
-    def __init__(self, items=[]):
-        self._items = items
+    def __init__(self):
+        self._items = []
 
     def pop(self):
         assert(self._items)
@@ -106,8 +102,8 @@ class Stack:
 
 class Queue(Stack):
 
-    def __init__(self,items=[]):
-        super().__init__(items)
+    def __init__(self):
+        super().__init__()
 
     #@override
     def pop(self):
@@ -143,7 +139,7 @@ def getBracket(s)->str:
             numOpen+=1
         elif s[i]==")":
             if numOpen==0:
-                print(s[:i])
+                #print(s[:i])
                 return s[:i]
             else:
                 numOpen-=1
@@ -174,90 +170,95 @@ def evaluateBrackets(s):
         i = i+len(bracket)+2
         #plus 2 to skip the closing bracket
 
-    print('final s: {}, works? {}'.format(finalExp,re.fullmatch(regexEquation,finalExp)))
+    #print('final s: {}, works? {}'.format(finalExp,re.fullmatch(regexEquation,finalExp)))
     return re.fullmatch(regexEquation,finalExp) is not None
 
+def convert(s: str)->list:
+    i = 0
+    operator = Stack()
+    output = Queue()
+    lastCharOperator = False
+    lastCharNum = False
+    while i<len(s):
+        c = s[i]
+        #print("c is: {}".format(c))
+        #print("operator is: {}".format(operator))
+        if c.isdigit() or c=='.' or (c=='-' and lastCharOperator):
+            num = c
+            j=i+1
+            while j<len(s):
+                c = s[j]
+                if c.isdigit():
+                    num+=c
+                elif c=='.':
+                    assert(num.count('.')<=1)
+                    #this shoulda been tested with the regex
+                    num+=c
+                else:
+                    break
+                j+=1
+            i=j
+            output.push(float(num))
+            lastCharOperator = False
+            lastCharNum = True
+            continue
+            
+        elif c=="(":
+            if lastCharNum:
+                s = s[:i-1]+"*"+s[i:]
+                lastCharNum = False
+                i-=1
+                # if we have 2(...),
+                # should be interpreted
+                # as 2*(...)
+                # this is really messy way of doing this
+                # i should make this whole thing into a
+                # fsm, including the regex
+                # or make the string into a queue or something
+                continue
+            else:
+                operator.push(c)
+        elif c==")":
+            while not operator.peek()=="(":
+                output.push(operator.pop())
+            operator.pop()
+        else:
+            opObj = OperatorHandelers.getOperator(c)
+            assert(opObj is not None)
+            precedence = opObj.getPrecedence()
+
+            topStack = operator.peek()
+            
+            while topStack is not None and topStack!= "(" and\
+                (topStack.getPrecedence() > precedence or\
+                (topStack.getPrecedence() == precedence and\
+                 topStack.isLeftAssociative()) ):
+                #verbose i know
+
+                output.push(operator.pop())
+                topStack = operator.peek()
+     
+            operator.push(opObj)
+            lastCharOperator = True
+            lastCharNum = False
+        i+=1
+
+    while operator.peek() is not None:
+        output.push(operator.pop())
+
+    return output.getItems()
 
 while(True):
-    equationOrig = input('type equation: ')
-    if evaluateBrackets(equationOrig):
-        break
-    print("invalid string, make sure brackets match and don't use functions like sin, ln or min/max")
-            
-i = 0
-operator = Stack()
-output = Queue()
-
-s = equationOrig
-lastCharOperator = False
-lastCharNum = False
-while i<len(equationOrig):
-    c = s[i]
-    print("c is: {}".format(c))
-    print("operator is: {}".format(operator))
-    if c.isdigit() or c=='.' or (c=='-' and lastCharOperator):
-        num = c
-        j=i+1
-        while j<len(s):
-            c = s[j]
-            if c.isdigit():
-                num+=c
-            elif c=='.':
-                assert(num.count('.')<=1)
-                #this shoulda been tested with the regex
-                num+=c
-            else:
-                break
-            j+=1
-        i=j
-        output.push(float(num))
-        lastCharOperator = False
-        lastCharNum = True
-        continue
-        
-    elif c=="(":
-        if lastCharNum:
-            s = s[:i-1]+"*"+s[i:]
-            lastCharNum = False
-            i-=1
-            # if we have 2(...),
-            # should be interpreted
-            # as 2*(...)
-            # this is really messy way of doing this
-            # i should make this whole thing into a
-            # fsm, including the regex
-            continue
-        else:
-            operator.push(c)
-    elif c==")":
-        while not operator.peek()=="(":
-            output.push(operator.pop())
-        operator.pop()
+    equation = input('type equation: ')
+    if not evaluateBrackets(equation):
+        print("invalid string, make sure brackets match"+
+        " and don't use functions like sin, ln or min/max")
     else:
-        opObj = OperatorHandelers.getOperator(c)
-        assert(opObj is not None)
-        precedence = opObj.getPrecedence()
-
-        topStack = operator.peek()
-        
-        while topStack is not None and topStack!= "(" and\
-            (topStack.getPrecedence() > precedence or\
-            (topStack.getPrecedence() == precedence and\
-             topStack.isLeftAssociative()) ):
-            #verbose i know
-
-            output.push(operator.pop())
-            topStack = operator.peek()
- 
-        operator.push(opObj)
-        lastCharOperator = True
-        lastCharNum = False
-    i+=1
-
-while operator.peek() is not None:
-    output.push(operator.pop())
-
-print("output: {}".format(output))
+        output = convert(equation)
+        s=''
+        for e in output:
+            s+=str(e)+","
+        print(s.strip(','))
 
 
 
