@@ -1,4 +1,4 @@
-import re, turtle, sympy
+import re, turtle
 
 class Operators:
     _precedence = 0
@@ -132,10 +132,7 @@ toPower = lambda x,y: x**y
 operatorDic = {('x','*'):{'func':multiply}, ('/'): divide,\
                ('+'):add, ('-'):subtract, ('^'):toPower}
 
-
-variables = ""
 digitRegex = "(-?(\\d+|\\.\\d+|\\d+\\.\\d+))"
-_operandRegexS = digitRegex.strip(")")+"|({}?".format(digitRegex)+"({}))+))"
 
 operatorRegexS = "("
 for operator in Operators:
@@ -143,6 +140,8 @@ for operator in Operators:
         operatorRegexS += "{}|".format("\\"+c)
 operatorRegexS = operatorRegexS.strip("|")
 operatorRegexS += ")"
+
+regexEquation = re.compile("{}({}{})*".format(digitRegex,operatorRegexS,digitRegex))
 
 #ideally, we would make these brackets into 
 #non capture groups
@@ -178,8 +177,6 @@ def evaluateBrackets(s):
         elif not evaluateBrackets(bracket):
             return False
 
-        if variables:
-            finalExp += variables[0]
         else:
             finalExp += '0'
         #if the nested brackets are valid, we know that the bracket will return an
@@ -223,7 +220,7 @@ def convert(s: str)->list:
                 lastCharOperator = False
 
             
-        elif c=="(" or c in variables:
+        elif c=="(":
             if not lastCharOperator:
                 tokens.push(c)
                 tokens.push("*")
@@ -231,11 +228,7 @@ def convert(s: str)->list:
                 # as 2*(...). Same with xyz ~ x*y*z
                 
             else:
-                if c in variables:
-                    output.push(c)
-                    lastCharOperator = False
-                else:
-                    operator.push(c)
+                operator.push(c)
                 
         elif c==")":
             while not operator.peek()=="(":
@@ -386,8 +379,6 @@ def buildTree(output: list)->ItsTreesonThen:
 def getExp(tree):
     if not tree:
         return
-    
-    variables = {c:sympy.symbols(c) for c in 'xyz'}
 
     def preorder(node):
         if node.getLeft():
@@ -398,120 +389,14 @@ def getExp(tree):
             
         else:
             v = node.getValue()
-            if str(v) in 'xyz':
-                return variables[v]
-            else:
-                assert(type(v)==int or type(v)==float)
-                return v
+            assert(type(v)==int or type(v)==float)
+            return v
 
     return preorder(tree)
 
-class Bundle:
-
-    def __init__(self,exp, px, py, m):
-        self.exp = exp
-        self.px, self.py, self.m = px, py, m
-        self.tanCond = None
-        self.bundle = self.getBundle()
-        self.uCurve = Bundle.getUtility(self.bundle,self.exp)
-
-    def getBundle(self):
-        exp,px,py,m = self.exp, self.px, self.py, self.m
-        x,y = sympy.symbols('x y')
-        bl = (x*px+y*py-m).evalf()
-
-        mux,muy = sympy.diff(exp,x), sympy.diff(exp,y)
-        isFunctionXY = lambda f: any("Symbol('{}')".format(v) in sympy.srepr(f) for v in ('x','y'))
-
-        #if we can solve with tan mrs=pRatio:
-        if isFunctionXY(mux) or isFunctionXY(muy):
-            print("\tmux = {}".format(mux))
-            print("\tmuy = {}".format(muy))
-        
-            mrs = sympy.simplify(sympy.diff(exp,x)/sympy.diff(exp,y))
-            print('\tMRS: {}'.format(mrs))
-        
-            pRatio = px/py
-            print('\tprice ratio: {}'.format(pRatio))
-
-            if isFunctionXY(mux):
-                self.tanCond = (sympy.solve(mrs-pRatio,x)[0]-x).evalf()
-            else:
-                self.tanCond = (sympy.solve(mrs-pRatio,y)[0]-y).evalf()
-            print('\ttangency condition [MRS = price ratio] => {} = 0'.format(tanCond))              
-
-            sysOfEq = [tanCond, bl]
-            A,b = sympy.linear_eq_to_matrix(sysOfEq, x, y)
-            
-            assert(tuple(sympy.linsolve((A,b), [x,y])))
-            bundleA = tuple(sympy.linsolve((A,b), [x,y]))[0]
-            print('substitute in => (x,y) = {}'.format(bundleA))
-        else:
-            maxU = lambda t: exp.evalf(subs={x:t[0],y:t[1]})
-            bundleA = max( ((m/px,0),(0,m/py)) , key=maxU)
-            print('substitute in => (x,y) = {}'.format(bundleA))
-
-            self.tanCond = None
-             
-        return bundleA
-
-    #@global
-    def getUtility(tup: tuple, exp):
-        u = exp.evalf(subs={x:tup[0],y:tup[1]})
-        return (exp-u).evalf()
-
-
-class BundleSE(bundle):
-
-    def __init__(self, exp, uCurve,px,py):
-        self.exp = exp
-        self.uCurve = uCurve
-        self.px, self.py = px, py
-
-    def getCurveShift(self)
-        self.uCurve 
-    
-        
-
-
-
 while(True):
-    '''
-    variablesS = input('type variables (just press enter for none): ')
-    
-    if not all(OperatorHandlers.getOperator(c)==None for c in variablesS):
-        print("error: variables cannot be operator characters")
-        continue
-        #using `all` means that I don't have to iterate with a for-loop,
-        #so I can use continue to restart the whole process instead of
-        #continuing just the nested for-loop
-
-    '''
-    variablesS = "xyz"
-    variables = ""
-    for c in variablesS:
-        variables+=c+"|"
-    variables = variables.strip("|")
-
-    operandRegexS = _operandRegexS.format(variables)
-    regexEquation = re.compile("{}({}{})*".format(operandRegexS,operatorRegexS,operandRegexS))
-    
-    equation = input('type utility function: ')
+    equation = input('type equation: ')
     checkNum = re.compile(digitRegex)
-
-    dic = {'px':{'text':'price of good x in period 1','var':None},\
-          'px2':{'text':'price of good x in period 2','var':None},\
-           'py':{'text':'price of good y','var':None},\
-            'm':{'text':'income','var':None}}
-
-    for k in list(dic.keys()):
-        while(True):
-            var = input('\ttype {}: '.format(dic[k]['text']))
-            if re.fullmatch(checkNum,var):
-                dic[k]['var']  = float(var)
-                break
-    px,py,m = dic['px']['var'],dic['py']['var'],dic['m']['var']
-
         
     if equation == "quit":
         break
@@ -523,67 +408,14 @@ while(True):
         output = convert(equation)
         print("\toutput: "+",".join((str(e) for e in output)))
         t=buildTree(output.copy())
-        exp = getExp(t).evalf()
+        exp = getExp(t)
         print("evaluated output: {}".format(exp))
         ItsTreesonThen.printTree(t,equation,exp)
 
-        bundleA = Bundle(exp,px,py,m)
-        bundleC = Bundle(exp,px2,py,m)
-        
-        '''
-        bundleA = []
-        x,y = sympy.symbols('x y')
-        bl = (x*px+y*py-m).evalf()
 
-        mux,muy = sympy.diff(exp,x), sympy.diff(exp,y)
-        isFunctionXY = lambda f: any("Symbol('{}')".format(v) in sympy.srepr(f) for v in ('x','y'))
-
-        #if we can solve with tan mrs=pRatio:
-        if isFunctionXY(mux) or isFunctionXY(muy):
-            print("\tmux = {}".format(mux))
-            print("\tmuy = {}".format(muy))
-        
-            mrs = sympy.simplify(sympy.diff(exp,x)/sympy.diff(exp,y))
-            print('\tMRS: {}'.format(mrs))
-        
-            pRatio = px/py
-            print('\tprice ratio: {}'.format(pRatio))
-
-            if isFunctionXY(mux):
-                tanCond = (sympy.solve(mrs-pRatio,x)[0]-x).evalf()
-            else:
-                tanCond = (sympy.solve(mrs-pRatio,y)[0]-y).evalf()
-            print('\ttangency condition [MRS = price ratio] => {} = 0'.format(tanCond))              
-
-            sysOfEq = [tanCond, bl]
-            A,b = sympy.linear_eq_to_matrix(sysOfEq, x, y)
-            
-            assert(tuple(sympy.linsolve((A,b), [x,y])))
-            bundleA = tuple(sympy.linsolve((A,b), [x,y]))[0]
-            print('substitute in => (x,y) = {}'.format(bundleA))
-        else:
-            maxU = lambda t: exp.evalf(subs={x:t[0],y:t[1]})
-            bundleA = max( ((m/px,0),(0,m/py)) , key=maxU)
-            print('substitute in => (x,y) = {}'.format(bundleA))
-            
-        u = exp.evalf(subs={x:bundleA[0],y:bundleA[1]})
-        uCurveA = (exp-u).evalf()
-        '''
-            
-        '''
-        _lambda = sympy.symbols('_lambda')
-        bl = (x*px+y*py-m).evalf()
-        d = sympy.diff
-        sysOfEq = [d(exp,x) - _lambda*d(bl,x),\
-                   d(exp,y) - _lambda*d(bl,y),\
-                   bl]
-        A,b = sympy.linear_eq_to_matrix(sysOfEq, x, y, _lambda)
-        lagrange = tuple(sympy.linsolve((A,b), [x,y,_lambda]))[:2])
-        if all(good>=0 for good in lagrange):
-            bundleA.append(lagrange)
-        '''
-        
-            
+# this whole project is for my microeconomics grapher
+# that version of the parser includes variables,
+# and uses sympy to evaluate those variables
 
         
 
